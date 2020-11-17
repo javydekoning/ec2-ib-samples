@@ -1,0 +1,29 @@
+name: Install Chocolatey
+description: "Example of installing Chocolatey and using loops to install packages."
+schemaVersion: 1.0
+phases:
+  - name: build
+    steps:
+      - name: install-choco
+        action: ExecutePowerShell
+        timeoutSeconds: 60
+        maxAttempts: 3
+        inputs:
+          commands:
+            - |-
+              [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+              Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+              updatepath
+              [Environment]::SetEnvironmentVariable('PATH', $env:path, [EnvironmentVariableTarget]::Machine)
+              [Environment]::SetEnvironmentVariable('ChocolateyInstall', $chocopath, [EnvironmentVariableTarget]::Machine)
+      - name: install-choco-packages
+        action: ExecutePowerShell
+        loop:
+          forEach:
+            - filezilla
+            - greenshot
+        inputs:
+          commands:
+            - |-
+              $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+              choco install -y -f -v {{ loop.value }}

@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Image Builder Pipeline demo
+
+Parameters:
+  BaseImage:
+    Default: ami-0c73a7a0ed4e0133f
+    Description: Which Image Builder parent image to use.
+    Type: String
+
+Resources:
+  RootRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/EC2InstanceProfileForImageBuilder"
+        - "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+        - "arn:aws:iam::aws:policy/AmazonInspectorFullAccess"
+
+  IamInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref RootRole
+
+  ImagePipelineParameters:
+    Type: "AWS::ImageBuilder::ImagePipeline"
+    Properties:
+      Name: !Sub ${AWS::StackName}-pipeline
+      ImageRecipeArn: !Ref Recipe
+      InfrastructureConfigurationArn: !Ref InfraConfig
+      DistributionConfigurationArn: !Ref DistConfig
+      Schedule:
+        ScheduleExpression: "cron(0 9 * * *)"
+        PipelineExecutionStartCondition: "EXPRESSION_MATCH_AND_DEPENDENCY_UPDATES_AVAILABLE"
+      Status: "ENABLED"
+
+  InfraConfig:
+    Type: "AWS::ImageBuilder::InfrastructureConfiguration"
+    Properties:
+      Name: !Sub ${AWS::StackName}-infra-config
+      InstanceProfileName: !Ref IamInstanceProfile
+      InstanceTypes:
+        - "c5.large"
+      TerminateInstanceOnFailure: true
+
+  Recipe:
+    Type: "AWS::ImageBuilder::ImageRecipe"
+    Properties:
+      Name: !Sub ${AWS::StackName}-recipe
+      Version: "1.0.1"
+      ParentImage: !Ref BaseImage
+      Components:
+        - ComponentArn: !Sub "arn:aws:imagebuilder:${AWS::Region}:aws:component/chocolatey/x.x.x"
+        - ComponentArn: !Join
+            - ""
+            - - !Sub arn:aws:imagebuilder:${AWS::Region}:${AWS::AccountId}:component/
+              - !Select [1, !Split ["/", !Ref Component]]
+              - /x.x.x
+        - ComponentArn: !Sub "arn:aws:imagebuilder:${AWS::Region}:aws:component/aws-cli-version-2-windows/x.x.x"
+        - ComponentArn: !Sub "arn:aws:imagebuilder:${AWS::Region}:aws:component/inspector-test-windows/x.x.x"
+        - ComponentArn: !Sub "arn:aws:imagebuilder:${AWS::Region}:aws:component/reboot-test-windows/x.x.x"
+
+  DistConfig:
+    Type: AWS::ImageBuilder::DistributionConfiguration
+    Properties:
+      Name: !Sub ${AWS::StackName}-distribution
+      Distributions:
+        - AmiDistributionConfiguration:
+            Name: !Sub "${AWS::StackName} - {{ imagebuilder:buildDate }}"
+            amiTags:
+              auto-delete: "no"
+            LaunchPermissionConfiguration:
+              UserIds:
+                - !Sub ${AWS::AccountId}
+          Region: !Sub ${AWS::Region}
+
+  Component:
+    Type: AWS::ImageBuilder::Component
+    Properties:
+      Name: !Sub ${AWS::StackName}-choco-packages
+      Platform: Windows
+      Version: 1.0.1
+      Data: |
+        name: Install Choco Packages
+        description: "Example of installing Chocolatey and using loops to install packages."
+        schemaVersion: 1.0
+        phases:
+          - name: build
+            steps:
+              - name: install-choco-packages
+                action: ExecutePowerShell
+                loop:
+                  forEach:
+                    - powershell-preview
+                    - choco install microsoft-windows-terminal
+                    - vscode
+                    - firefox
+                inputs:
+                  commands:
+                    - |-
+                      $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+                      choco install -y -f {{ loop.value }}

@@ -1,0 +1,8 @@
+name: Update OS
+description: "Example of using the UpdateOS action module."
+schemaVersion: 1.0
+phases:
+  - name: build
+    steps:
+      - name: install-windows-updates
+        action: UpdateOS

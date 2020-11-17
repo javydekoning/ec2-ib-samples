@@ -1,0 +1,60 @@
+name: Install releases from github
+description: "Example of installing packages from latest github release."
+schemaVersion: 1.0
+constants:
+  - tempfolder:
+      type: string
+      value: 'c:\ibtemp\'
+phases:
+  - name: build
+    steps:
+      - name: get-github-release-links
+        action: ExecutePowerShell
+        loop:
+          forEach:
+            - "microsoft/winget-cli"
+            - "microsoft/terminal"
+        inputs:
+          commands:
+            - |-
+              $uri     = 'https://github.com'
+              $fullurl = '{0}/{1}/releases/latest' -f $uri,'{{ loop.value }}'
+              $link    = (iwr $fullurl -UseBasicParsing).links |
+                         ? href -match '.*(msix|appx)bundle$'
+              $dllink  = $link.href
+
+              if ( ($dllink) -and ($dllink.GetType().name -eq 'String') ) {
+                  return ($uri, $dllink -join '')
+              } else {
+                  exit 1
+              }
+      - name: download-github-releases
+        action: WebDownload
+        loop:
+          forEach:
+            list: "{{ build.get-github-release-links.outputs.stdout }}"
+            delimiter: "\n"
+        inputs:
+          - source: "{{ loop.value }}"
+            destination: "{{ tempfolder }}"
+            overwrite: true
+      - name: install-bundles
+        action: ExecutePowerShell
+        inputs:
+          commands:
+            - |
+              Get-ChildItem '{{ tempfolder }}' -Filter '*xbundle' |
+              Add-AppPackage -Verbose
+      - name: DeleteTempFolder
+        action: DeleteFolder
+        inputs:
+          - path: "{{ tempfolder }}"
+            force: true
+      - name: install-winget-packages
+        action: ExecutePowerShell
+        loop:
+          forEach:
+            - Microsoft.PowerShell
+        inputs:
+          commands:
+            - winget install -e --id {{ loop.value }}

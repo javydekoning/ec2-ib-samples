@@ -82,16 +82,6 @@ Resources:
         PipelineExecutionStartCondition: "EXPRESSION_MATCH_ONLY"
       Status: "ENABLED"
 
-  InfraConfig:
-    Type: "AWS::ImageBuilder::InfrastructureConfiguration"
-    Properties:
-      Name: !Sub ${AWS::StackName}-infra-config
-      InstanceProfileName: !Ref IamInstanceProfile
-      InstanceTypes:
-        - "c5.large"
-      TerminateInstanceOnFailure: true
-      SnsTopicArn: !Ref SnsTopic
-
   Recipe:
     Type: "AWS::ImageBuilder::ImageRecipe"
     Properties:
@@ -108,6 +98,16 @@ Resources:
             - - !Sub arn:aws:imagebuilder:${AWS::Region}:${AWS::AccountId}:component/
               - !Select [1, !Split ["/", !Ref Component]]
               - /x.x.x
+
+  InfraConfig:
+    Type: "AWS::ImageBuilder::InfrastructureConfiguration"
+    Properties:
+      Name: !Sub ${AWS::StackName}-infra-config
+      InstanceProfileName: !Ref IamInstanceProfile
+      InstanceTypes:
+        - "c5.large"
+      TerminateInstanceOnFailure: true
+      SnsTopicArn: !Ref SnsTopic
 
   DistConfig:
     Type: AWS::ImageBuilder::DistributionConfiguration
@@ -130,6 +130,7 @@ Resources:
               UserIds:
                 - !Sub ${AWS::AccountId}
           Region: "eu-west-1"
+
   Component:
     Type: AWS::ImageBuilder::Component
     Properties:

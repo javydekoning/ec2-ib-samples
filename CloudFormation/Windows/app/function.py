@@ -2,5 +2,7 @@ import json
 
 
 def handler(event, context):
-    json.dumps(event)
-    return {}
+    return {
+        'statusCode': 200,
+        'body': json.dumps(event, sort_keys=True, indent=2)
+    }

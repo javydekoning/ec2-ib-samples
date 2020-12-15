@@ -1,6 +1,6 @@
 # ec2-imagebuilder-samples
 
-This repository containers examples for demo-ing EC2 Image Builder
+This repository contains examples for demo-ing EC2 Image Builder
 
 ## Local development
 

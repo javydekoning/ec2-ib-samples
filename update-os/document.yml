@@ -1,5 +1,5 @@
 name: Update OS
-description: "Example of using the UpdateOS action module."
+description: "Example of UpdateOS action module."
 schemaVersion: 1.0
 phases:
   - name: build
